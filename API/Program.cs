@@ -1,13 +1,37 @@
+using System;
+using System.Threading.Tasks;
+using Infrastructure.Data;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace API
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
-            CreateHostBuilder(args).Build().Run();
+            var host = CreateHostBuilder(args).Build();
+            using (var scope = host.Services.CreateScope())
+            {
+                var services = scope.ServiceProvider;
+                var loggerFactroy = services.GetRequiredService<ILoggerFactory>();
+                try
+                {
+                    var context = services.GetRequiredService<StoreContext>();
+                    await context.Database.MigrateAsync();
+                    await StoreContextSeed.SeedAsync(context, loggerFactroy);
+                }
+                catch (Exception e)
+                {
+                    var logger = loggerFactroy.CreateLogger<Program>();
+                    logger.LogError(e,"Migrations'larda hata oluþtu." 
+                      );
+                }
+            }
+            host.Run();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
